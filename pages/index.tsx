@@ -1,11 +1,56 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
-import styles from '@/styles/Home.module.css'
+import Head from "next/head";
+import Image from "next/image";
+import { Inter } from "next/font/google";
+import styles from "@/styles/Home.module.css";
+import { Client } from "@bnb-chain/zkbnb-js-sdk";
+import NFTGallery from "@/components/NFTGallery";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
+const client = new Client("https://api-testnet.zkbnbchain.org");
 
-export default function Home() {
+async function fetchNFT() {
+  // first get the account index by address
+  const acct_res = await client.getAccountByL1Address(
+    "0xe30F0A4d3346abCa7B61df08d6275e5F79C027a6"
+  );
+
+  // then get the NFTs by account index
+  const index = acct_res.index;
+  const requestParm = { accountIndex: index, offset: 0, limit: 10 };
+  const data = await client.getNftsByAccountIndex(requestParm);
+
+  // preload all the metadata
+  for (const nft of data.nfts) {
+    const metadata_url = "https://ipfs.io/ipfs/" + nft.ipfs_id;
+    const resp = await fetch(metadata_url);
+    const resp_json = await resp.json();
+    nft.metadata = JSON.parse(resp_json.meta_data);
+  }
+
+  return data.nfts;
+}
+
+export const getStaticProps = async () => {
+  try {
+    console.log("Getting NFTs...");
+
+    const nfts = await fetchNFT();
+    const props = JSON.stringify(nfts);
+
+    return {
+      props: {
+        props,
+      },
+      revalidate: 3600,
+    };
+  } catch (err) {
+    console.error("page error", err);
+    // we don't want to publish the error version of this page, so
+    // let next.js know explicitly that incremental SSG failed
+    throw err;
+  }
+};
+export default function Home(props: any) {
   return (
     <>
       <Head>
@@ -15,100 +60,9 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className={styles.main}>
-        <div className={styles.description}>
-          <p>
-            Get started by editing&nbsp;
-            <code className={styles.code}>pages/index.tsx</code>
-          </p>
-          <div>
-            <a
-              href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              By{' '}
-              <Image
-                src="/vercel.svg"
-                alt="Vercel Logo"
-                className={styles.vercelLogo}
-                width={100}
-                height={24}
-                priority
-              />
-            </a>
-          </div>
-        </div>
-
-        <div className={styles.center}>
-          <Image
-            className={styles.logo}
-            src="/next.svg"
-            alt="Next.js Logo"
-            width={180}
-            height={37}
-            priority
-          />
-        </div>
-
-        <div className={styles.grid}>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Docs <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Find in-depth information about Next.js features and&nbsp;API.
-            </p>
-          </a>
-
-          <a
-            href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Learn <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Learn about Next.js in an interactive course with&nbsp;quizzes!
-            </p>
-          </a>
-
-          <a
-            href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Templates <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Discover and deploy boilerplate example Next.js&nbsp;projects.
-            </p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Deploy <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Instantly deploy your Next.js site to a shareable URL
-              with&nbsp;Vercel.
-            </p>
-          </a>
-        </div>
+        <h1>Sunhao&apos;s zkBNB NFT</h1>
+        <NFTGallery {...props} />
       </main>
     </>
-  )
+  );
 }
